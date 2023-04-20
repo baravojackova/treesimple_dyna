@@ -1,0 +1,410 @@
+!MAIN BATCH FILE
+!TREE DYNA – BEAM MODEL WITH SHELL ROOT-PLATE – PULL AND RELEASE TEST [m,N,Pa,°,kg] 
+!==============================================================================================================
+!--------------------------------------------INPUT PARAMETERS--------------------------------------------------
+kp_kmen=22				!number of stem parts according to kmen.mac
+nkm_mer=16				!number of manually measured parts
+nkm_fot=kp_kmen-nkm_mer		!number of measured part from photo
+n_vt=66				!number of branches according to vetve.mac
+nvt_mer=56				!number of manually measured parts 
+nvt_fot=n_vt-nvt_mer		!number of measured part from photo 
+n_sl=13				!number of columns in vetve.mac
+n_slkm=n_sl-1				!number of columns in kmen.mac 
+t_ks=2*0.094				!thickness of root-plate – based on the correction in static analysis
+poc_rad=2				!number of branch orders
+poz_tah=9				!position of pulling
+!ac1=11				!position of accelerometer
+!ac2=1
+smerz=181				!z direction
+u_tahx=0.189				!displacement at maximum pull in x – from DIC
+u_tahz=-0.00469			!displacement at maximum pull in z – from DIC
+!
+!--------------------------GEOMETRY AND MATERIAL---------------------------------------------------------------
+/prep7					!pre-processing
+*afun,deg				!use degrees
+!
+*dim,kmen,table,kp_kmen,n_slkm,1,poradi,vlast					!create table for stem
+*tread,kmen,kmen,mac,,3								!read data from kmen.mac
+!
+*dim,vetve,table,n_vt,n_sl,1,poradi,vlast					!create table for branches *tread,vetve,vetve,mac,,1												!read data from vetve.mac
+*dim,location,array,n_vt,3,1,poradi,xyz
+!
+!--------------------------material
+*dim,koef_mat,table,3,12,1,vrstva,vysec						!create table for coefficient matrix 
+*tread,koef_mat,koef_mat,mac,,1		
+mat_kmen.mac							!run file for definition of stem material 
+mat_korsys.mac						!run file for definition of root-plate material
+!
+!------------eliptical cross-sections
+!stem section base
+!calculate parameters for definition of cross-sections
+*do,i,2,kp_kmen,1
+ ar_%kmen(i,2)%=pi*(kmen(i,6)/2)*(kmen(i,5)/2)    					!area
+ iny_%kmen(i,2)%=1/4*((kmen(i,6)/2)**3*(kmen(i,5)/2))    				!iyy
+ inz_%kmen(i,2)%=1/4*((kmen(i,5)/2)**3*(kmen(i,6)/2))    				!izz
+ tor_%kmen(i,2)%=((kmen(i,5)/2)**3*(kmen(i,6)/2)**3)/((kmen(i,5)/2)**2+(kmen(i,6)/2)**2) 	!torsion
+ !                        
+ sectype,kmen(i,2),beam,asec,					!create cross-section by ASEC
+ secoffset,cent
+ secdata,ar_%kmen(i,2)%,iny_%kmen(i,2)%,0,inz_%kmen(i,2)%,0,tor_%kmen(i,2)%,0,0,0,0,(kmen(i,6)/2),(kmen(i,5)/2)
+*enddo
+!
+!stem section top
+*do,i,2,kp_kmen,1
+ ar_%kmen(i,3)%=pi*(kmen(i,11)/2)*(kmen(i,10)/2)    				!area
+ iny_%kmen(i,3)%=1/4*((kmen(i,11)/2)**3*(kmen(i,10)/2))          		!iyy
+ inz_%kmen(i,3)%=1/4*((kmen(i,10)/2)**3*(kmen(i,11)/2))          		!izz
+ tor_%kmen(i,3)%=((kmen(i,10)/2)**3*(kmen(i,11)/2)**3)/((kmen(i,10)/2)**2+(kmen(i,11)/2)**2) !torsion
+ !                        
+ sectype,100+kmen(i,3),beam,asec,						!create cross-section by ASEC
+ secoffset,cent
+ secdata,ar_%kmen(i,3)%,iny_%kmen(i,3)%,0,inz_%kmen(i,3)%,0,tor_%kmen(i,3)%,0,0,0,0,(kmen(i,6)/2),(kmen(i,5)/2)
+*enddo
+!
+!branch base
+*do,i,1,n_vt,1
+ ar_%vetve(i,3)%=pi*(vetve(i,7)/2)*(vetve(i,6)/2)    								!area 
+ iny_%vetve(i,3)%=1/4*((vetve(i,7)/2)**3*(vetve(i,6)/2))          						!iyy
+ inz_%vetve(i,3)%=1/4*((vetve(i,6)/2)**3*(vetve(i,7)/2))         						!izz
+ tor_%vetve(i,3)%=((vetve(i,6)/2)**3*(vetve(i,7)/2)**3)/((vetve(i,6)/2)**2+(vetve(i,7)/2)**2) 	!torsion
+ !                        
+ sectype,vetve(i,3),beam,asec,						!create cross-section by ASEC 
+ secoffset,cent
+ secdata,ar_%vetve(i,3)%,iny_%vetve(i,3)%,0,inz_%vetve(i,3)%,0,tor_%vetve(i,3)%,0,0,0,0,(vetve(i,7)/2),(vetve(i,6)/2)
+*enddo
+!
+!branches tops
+*do,i,1,n_vt,1
+ ar_%vetve(i,4)%=pi*(vetve(i,12)/2)*(vetve(i,11)/2)    					!area 
+ iny_%vetve(i,4)%=1/4*((vetve(i,12)/2)**3*(vetve(i,11)/2))         			!iyy
+ inz_%vetve(i,4)%=1/4*((vetve(i,11)/2)**3*(vetve(i,12)/2))          			!izz
+ tor_%vetve(i,4)%=((vetve(i,11)/2)**3*(vetve(i,12)/2)**3)/((vetve(i,11)/2)**2+(vetve(i,12)/2)**2) !torsion 
+ !                        
+ sectype,vetve(i,4),beam,asec,			!create cross-section by ASEC 
+ secoffset,cent
+ secdata,ar_%vetve(i,4)%,iny_%vetve(i,4)%,0,inz_%vetve(i,4)%,0,tor_%vetve(i,4)%,0,0,0,0,(vetve(i,12)/2),(vetve(i,11)/2)
+*enddo
+!
+!---------------------create lines
+!stem – along z axis 
+!
+csys,0						!global cart. csys
+k,1,0,0,0					!stem base kpoint
+k,70000000,0,2000000,0			!support point for setting directions of elliptical cross-sections
+!
+*do,i,2,nkm_mer,1								!stem creation according measured values
+ csys,0									!global cart. csys
+ wpcsys,1,0									!place wp to csys 0
+ *get,k%kmen(i,2)%_x,kp,kmen(i,2),loc,x					!get kp position (x,y,z) in csys 0 
+ ! 										!kp of section base/kp of top section from previous step
+ *get,k%kmen(i,2)%_y,kp,kmen(i,2),loc,y
+ *get,k%kmen(i,2)%_z,kp,kmen(i,2),loc,z
+ wpoffs,k%kmen(i,2)%_x,k%kmen(i,2)%_y,k%kmen(i,2)%_z 	!move wp to the top of previous section	
+ wprota,-kmen(i,7),0,90-kmen(i,8)							!rotate wp according section tilt 
+ ! 											!x-north position,
+ !											!z-angle from terrain plane 
+ csys,4										!change csys to wp csys (cartesian)
+ k,kmen(i,3),0,0,kmen(i,9)								!create kp – section top
+ spline,kmen(i,2),kmen(i,3)							!create line between kpoints 
+*enddo
+!
+csys,0
+wpcsys,1,0
+*get,k%kmen(nkm_mer,3)%_x,kp,kmen(nkm_mer,3),loc,x			!get kp possition (x,y,z) in csys 0,top of last section
+*get,k%kmen(nkm_mer,3)%_y,kp,kmen(nkm_mer,3),loc,y
+*get,k%kmen(nkm_mer,3)%_z,kp,kmen(nkm_mer,3),loc,z
+!
+csys,0										!global.cart. csys
+wpcsys,1,0									!place wp to csys 0
+!
+clocal,100,0,k%kmen(nkm_mer,3)%_x,k%kmen(nkm_mer,3)%_y,k%kmen(nkm_mer,3)%_z	!create local cart.csys
+wpcsys,100
+!
+*do,i,nkm_mer+1,nkm_mer+nkm_fot,1						!create stem according values from photos
+ k,kmen(i,3),kmen(i,7),kmen(i,8),kmen(i,9)				!create kp
+ spline,kmen(i,2),kmen(i,3)						!create line between points
+*enddo
+!
+csys,0										!global cart. csys
+wpcsys,1,0									!wp to csys 0
+!
+*do,i,nkm_mer+1,nkm_mer+nkm_fot,1
+ *get,k%kmen(i,3)%_x,kp,kmen(i,3),loc,x					!get node position(x,y,z) in csys 0
+ *get,k%kmen(i,3)%_y,kp,kmen(i,3),loc,y
+ *get,k%kmen(i,3)%_z,kp,kmen(i,3),loc,z
+*enddo
+!
+*do,i,2,kp_kmen,1								!properties assignment
+ ksel,s,kp,,kmen(i,2)							!select kp at base
+ ksel,a,kp,,kmen(i,3)							!select kp at top
+ lslk,s,1									!select line, which contains all selected kp
+ latt,i-1,1,2,,70000000,70000000,1e8+kmen(i,2)				!assign properties and orientation point 
+ allsel
+*enddo
+!
+lglue,all			!glue all
+!------------
+!branches 
+!
+k,60000000,0,0,-2000000					!support point for setting directions of elliptical cross-sections 
+!
+*do,i,1,nvt_mer,1						!branches from measured values
+ csys,0										!global cart. csys
+ wpcsys,1,0
+ wpoffs,k%vetve(i,2)%_x,k%vetve(i,2)%_y,k%vetve(i,2)%_z			!wpoffs to branch base 1st order
+ wprota,-vetve(i,8),0,90-vetve(i,9)						!wprota, x-north direction, z-branch tilt
+ csys,4										!change csys to wp csys (cartesian)
+ k,vetve(i,3),0,0,0									!kp of branch base
+ k,vetve(i,4),0,0,vetve(i,10)							!kp of branch top 
+ spline,vetve(i,3),vetve(i,4)							!create line
+ csys,0										!global cart. csys 
+ wpcsys,1,0										!wp to glob. csys
+ *get,k%vetve(i,4)%_x,kp,vetve(i,4),loc,x					!get position for movement and creation of next segment
+ *get,k%vetve(i,4)%_y,kp,vetve(i,4),loc,y
+ *get,k%vetve(i,4)%_z,kp,vetve(i,4),loc,z
+ !
+ *get,k%vetve(i,3)%_x,kp,vetve(i,3),loc,x
+ *get,k%vetve(i,3)%_y,kp,vetve(i,3),loc,y
+ *get,k%vetve(i,3)%_z,kp,vetve(i,3),loc,z
+*enddo
+!
+!
+wpcsys,100					!wp to csys 100
+csys,100
+!
+*do,i,nvt_mer+1,n_vt,1							!branches from values from photo			
+ k,vetve(i,4),vetve(i,8),vetve(i,9),vetve(i,10)			!create kp base
+ *get,k%vetve(i,2)%_x100,kp,vetve(i,2),loc,x				!get kp position for wpoffset 
+ *get,k%vetve(i,2)%_y100,kp,vetve(i,2),loc,y
+ *get,k%vetve(i,2)%_z100,kp,vetve(i,2),loc,z
+ k,vetve(i,3),k%vetve(i,2)%_x100,k%vetve(i,2)%_y100,k%vetve(i,2)%_z100	!create following kp in csys 100
+ spline,vetve(i,3),vetve(i,4)						      	!create line between kp base a kp top
+*enddo
+!
+allsel
+!
+csys,0											!global cart. csys
+wpcsys,1,0										!wp to global csys
+*do,i,nvt_mer+1,n_vt,1	
+ *get,k%vetve(i,4)%_x,kp,vetve(i,4),loc,x					!get kp position
+ *get,k%vetve(i,4)%_y,kp,vetve(i,4),loc,y
+ *get,k%vetve(i,4)%_z,kp,vetve(i,4),loc,z
+ !
+ *get,k%vetve(i,3)%_x,kp,vetve(i,3),loc,x
+ *get,k%vetve(i,3)%_y,kp,vetve(i,3),loc,y
+ *get,k%vetve(i,3)%_z,kp,vetve(i,3),loc,z
+*enddo
+!
+*do,i,1,n_vt,1
+ ksel,s,kp,,vetve(i,3)								!select kp at base
+ ksel,a,kp,,vetve(i,4)								!select kp at top
+ lslk,s,1										!select line, which contains all selected kp 
+ latt,i+10**(vetve(i,1)+1),1,2,,,,2e8+vetve(i,3)				!assign properties and orientation point 
+ allsel
+*enddo
+!lglue,all									!glue all – can be changed to ce or contact - bellow
+!
+!-----------------------------Root-plate
+!
+csys,0										!global cart. csys
+wpcsys,1,0
+!
+d_ks1=2*((kmen(1,5)+kmen(1,6))/2)					!diameter of root-plate layers – based on the stem base diameter 
+d_ks2=4*((kmen(1,5)+kmen(1,6))/2)
+d_ks3=10*((kmen(1,5)+kmen(1,6))/2)
+!
+cyl4,0,0,0,,d_ks1/2						!create circle for each layer
+cyl4,0,0,d_ks1/2,,d_ks2/2
+cyl4,0,0,d_ks2/2,,d_ks3/2
+!
+wprota,,90							!create segments in 30 degrees
+*do,i,1,6
+ wprota,,,30
+ asbw,all,,delete						!split area, delete original areas
+*enddo
+wpcsys,1,0
+!
+aglue,all							!glue all
+!
+csys,1								!1st layer selection and material and section assignment		
+*do,i,1,12
+ asel,s,loc,x,0,d_ks1/2					!select radius
+ asel,r,loc,y,(i-1)*30,i*30				!reselect segment
+ aatt,10e3+i,1,3,,60000000,				!assign attributes
+ allsel
+*enddo
+!
+*do,i,1,12							!2nd layer selection and material and section assignment	
+ asel,s,loc,x,d_ks1/2,d_ks2/2				
+ asel,r,loc,y,(i-1)*30,i*30
+ aatt,20e3+i,1,3,,60000000,
+ allsel
+*enddo
+!
+*do,i,1,12
+ asel,s,loc,x,d_ks2/2,d_ks3/2				!3rd layer selection and material and section assignment	
+ asel,r,loc,y,(i-1)*30,i*30
+ aatt,30e3+i,1,3,,60000000,
+ allsel
+*enddo
+!
+!------------------------------------------------------MESHING-------------------------------------------------------------------
+!root-plate
+!
+sectype,60000000,shell,				!shell selection
+et,3,shell281						!etype
+secoffset,top						!main axis top
+secdata,t_ks,,,9					!thickness and number of divisions
+aesize,all,0.05					!esize
+amesh,all						!mesh all
+!
+!stem
+!
+et,2,beam189						!etype (3node element)
+esizn=0.03						!esize
+!
+allsel,all
+!
+*do,i,2,kp_kmen,1					
+ ksel,s,kp,,kmen(i,2)				!select kp
+ ksel,a,kp,,kmen(i,3)								
+ lslk,s,1						!select line, which contains all selected kp 
+ lsel,u,loc,z,0					!unselect lines attached to the root-plate
+ esize,esizn						!esize
+ sectype,1e8+kmen(i,2),taper,,			!taper
+ secdata,kmen(i,2),k%kmen(i,2)%_x,k%kmen(i,2)%_y,k%kmen(i,2)%_z			!base cross-section
+ secdata,100+kmen(i,3),k%kmen(i,3)%_x,k%kmen(i,3)%_y,k%kmen(i,3)%_z		!top cross-section
+ lmesh,all											!mesh all selected
+ allsel,all
+*enddo
+!
+allsel,all
+!
+!branches
+!
+*do,i,1,n_vt,1									
+ ksel,s,kp,,vetve(i,3)				!select kp 
+ ksel,a,kp,,vetve(i,4)							
+ lslk,s,1									!select line, which contains all selected kp
+ esize,esizn									!esize
+ sectype,2e8+vetve(i,3),taper,,						!taper
+ secdata,vetve(i,3),k%vetve(i,3)%_x,k%vetve(i,3)%_y,k%vetve(i,3)%_z	!cross-section base
+ secdata,vetve(i,4),k%vetve(i,4)%_x,k%vetve(i,4)%_y,k%vetve(i,4)%_z	!cross-section top
+ lmesh,all										!mesh all selected
+ allsel
+*enddo
+!
+!----------rotate csys and nodes for application of load
+allsel,all
+wprota,-smerz,0,0		!wprota in direction of pulling
+cswpla,200,0			!create lsys
+csys,200
+nrotat,all			!rotate all nodes
+csys,0				!return back to glob. csys
+wpcsys,1,0
+!
+!------------stiffness of anchorage
+!side branches 
+!
+*dim,nod_num,array,n_vt,2,3,poradi,n_num				!create table for node numbers 
+!
+ce_1=1										!coefficients for anchorage stiffness reduction 1st order 
+ce_2=1										!coefficients for anchorage stiffness reduction 2nd order 
+ce_3=1										!coefficients for anchorage stiffness reduction 3rd order 
+!
+*do,j,1,poc_rad									
+ *do,i,1,n_vt,1							!condition to get appropriate order numbers in row	
+  *if,vetve(i,1),eq,j,then
+  ksel,s,kp,,vetve(i,2)
+  nslk,s
+  *vget,nod_num(i,1,j),node,,nlist
+  ksel,s,kp,,vetve(i,3)
+  nslk,s
+  *vget,nod_num(i,2,j),node,,nlist
+  ! 
+  ce,(j*100)+i,0,nod_num(i,1,j),rotz,ce_%j%,nod_num(i,2,j),rotz,-1		!constrain equation
+  ce,(j*200)+i,0,nod_num(i,1,j),roty,ce_%j%,nod_num(i,2,j),roty,-1
+  ce,(j*300)+i,0,nod_num(i,1,j),rotx,ce_%j%,nod_num(i,2,j),rotx,-1
+  ce,(j*400)+i,0,nod_num(i,1,j),uz,ce_%j%,nod_num(i,2,j),uz,-1
+  ce,(j*500)+i,0,nod_num(i,1,j),uy,ce_%j%,nod_num(i,2,j),uy,-1
+  ce,(j*600)+i,0,nod_num(i,1,j),ux,ce_%j%,nod_num(i,2,j),ux,-1
+  *endif
+ *enddo
+*enddo
+allsel
+!
+!stem in root-plate
+!
+ksel,s,loc,x,0		!select kpoint
+ksel,r,loc,z,0
+ksel,r,loc,y,0
+nslk,s						!select node attached to kp
+*get,num_kmen,node,0,num,min		!get node number
+*get,num_ks,node,0,num,max
+ce,500001,0,num_kmen,rotz,1,num_ks,rotz,-1	!define constrain equations – full transfer of dof
+ce,500002,0,num_kmen,rotx,1,num_ks,rotx,-1
+ce,500003,0,num_kmen,roty,1,num_ks,roty,-1
+ce,500004,0,num_kmen,uz,1,num_ks,uz,-1
+ce,500005,0,num_kmen,ux,1,num_ks,ux,-1
+ce,500006,0,num_kmen,uy,1,num_ks,uy,-1
+!
+!d,all,all,0			!full anchorage – not used
+!
+!nsel,s,loc,z,1e-2,esizn
+!*get,num_kmen1,node,0,num,min
+!
+!ce,600001,0,num_kmen,rotz,0.5,num_kmen1,rotz,-1	!define constrain equations – 50% reduction of dof 
+!ce,600002,0,num_kmen,rotx,0.5,num_kmen1,rotx,-1
+!ce,600003,0,num_kmen,roty,0.5,num_kmen1,roty,-1
+!ce,600004,0,num_kmen,uz,0.5,num_kmen1,uz,-1
+!ce,600005,0,num_kmen,ux,0.5,num_kmen1,ux,-1
+!ce,600006,0,num_kmen,uy,0.5,num_kmen1,uy,-1
+!
+allsel,all			!select all
+csys,0				!global cart.csys
+!
+finish				!end of pre-processing
+!save,geom_str,db		!save db
+/eof				!end script – follow by running script according analysis > modal, harmonic,transient or static
+!---------------------------------------------SOLUTION---------------------------------------------------------------------------
+!-------------harmonic analysis--------------
+!harm.mac
+!-------------modal analysis---------------
+!modal.mac
+!-------------transient analysis-------------
+!trans.mac
+!------------static analysis-----------------
+!static analysis is used for tuning of root-plate stiffness
+/solu						!solution
+antype,0,					!static analysis
+!                                                                                                       
+kbc,1						!ramped step, if not change is used in following steps also
+!acel,0,0,9.81
+csys,1
+lsel,s,loc,x,d_ks3/2			!select lines for anchorage of root-plate boundaries
+lsel,r,loc,z,0
+dl,all,1,all,0
+csys,0
+allsel
+!dk,poz_tah,ux,u_tahx			!displacement application
+fk,poz_tah,fx,1000				!force application
+outres,all,all,				!write all steps and substeps 
+lswrite,1					!write ls 1
+solve						!solve
+finish						!finish solution
+!------------------------------POST PROCESSING-----------------------------------------------------------------------------------
+/post1
+rsys,200				!rsys rotated to node csys
+nsel,s,loc,x,0			!select node at stem base
+nsel,r,loc,z,0
+nsel,r,loc,y,0
+*get,u_rotsum,node,num_kmen,rot,sum	!get rotation sum in radians!
+ksel,s,kp,,poz_tah				!select kp at pulling position
+nslk,s						!select attached nodes
+*get,ntah,node,0,num,max			!get node number
+*get,force,node,ntah,rf,fx			!get reaction force
+allsel, all					!select all
+plnsol,u,x,0,1				!plot u x
+*get,u_max,plnsol,0,max			!get max displacement
+/eof						!finish
+
